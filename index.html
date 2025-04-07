@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kid's Beat Maker Pro!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+
+    <style>
+        :root {
+            --gold-main: #d4af37;
+            --gold-dark: #a07c1a;
+            --gold-light: #f0e68c;
+            --pad-bg-base: #5a5a5a;
+            --pad-active-bg: #777777;
+            --pad-record-bg: #ff6b6b;
+            --pad-sequence-bg: #64b5f6;
+            --pad-lit-color: #ffee58;
+            --screen-bg: #1a1a1a;
+            --text-dark: #333;
+            --text-light: #eee;
+            --control-bg: #bdbdbd;
+            --control-active-bg: #9e9e9e;
+            --control-border: #8d8d8d;
+        }
+
+        html, body {
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+            font-family: 'Arial Rounded MT Bold', 'Helvetica Rounded', Arial, sans-serif;
+        }
+
+        /* Tap to Start Overlay */
+        #audio-start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); /* Slightly darker */
+            color: white;
+            display: flex; /* Use flexbox */
+            flex-direction: column; /* Stack items vertically */
+            justify-content: center;
+            align-items: center;
+            text-align: center; /* Center text */
+            font-size: 1.5rem; /* Adjusted size */
+            padding: 20px;
+            cursor: pointer;
+            z-index: 1000; /* Ensure it's on top */
+            transition: opacity 0.4s ease-out;
+        }
+        #audio-start-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        /* Style for the icon inside the overlay */
+        #audio-start-overlay i {
+            width: 4rem;
+            height: 4rem;
+            stroke-width: 1.5;
+            margin-bottom: 1rem;
+        }
+
+
+        .beat-machine-container {
+            background-color: var(--gold-main);
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(0, 0, 0, 0.2);
+            border: 4px solid var(--gold-dark);
+            width: 95vw;
+            height: 65vw;
+            max-width: 900px;
+            max-height: 600px;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 10px;
+            position: relative;
+        }
+
+        /* Screen Area */
+        .screen-area {
+            grid-column: 1 / 6;
+            grid-row: 2 / 7;
+            background-color: var(--screen-bg);
+            border-radius: 10px;
+            border: 3px solid #444;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #visualizer-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .screen-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            color: var(--text-light);
+            font-size: clamp(0.7rem, 2vw, 1rem);
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+            padding: 5px;
+            border-radius: 5px 5px 0 0;
+            z-index: 10;
+        }
+        #bpm-display, #bank-display {
+            background-color: rgba(0,0,0,0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* Pads Area */
+        .pads-container {
+            grid-column: 6 / 11;
+            grid-row: 2 / 7;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 8px;
+            align-self: center;
+            justify-self: center;
+            width: 95%;
+            height: 95%;
+        }
+
+        .drum-pad {
+            background-color: var(--pad-bg-base);
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.05);
+            border: 2px solid #222;
+            transition: background-color 0.05s ease, transform 0.05s ease, box-shadow 0.1s ease, border 0.1s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 5px;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+            overflow: hidden;
+        }
+         .pad-icon {
+             width: clamp(1.2rem, 4vw, 1.8rem);
+             height: clamp(1.2rem, 4vw, 1.8rem);
+             stroke-width: 2;
+             margin-bottom: 3px;
+         }
+         .pad-name {
+             font-size: clamp(0.5rem, 1.8vw, 0.7rem);
+             line-height: 1;
+             text-align: center;
+         }
+
+        .drum-pad::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--pad-lit-color); opacity: 0; transition: opacity 0.1s ease-out;
+            pointer-events: none; border-radius: inherit; z-index: 1;
+        }
+        .drum-pad.lit::after { opacity: 0.7; }
+         .drum-pad.sequenced {
+             border: 3px solid var(--pad-sequence-bg);
+             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.05), 0 0 8px var(--pad-sequence-bg);
+         }
+          .drum-pad.recording {
+             border: 3px solid var(--pad-record-bg);
+             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.05), 0 0 8px var(--pad-record-bg);
+         }
+         .drum-pad:not(.sequenced):not(.recording) {
+             border: 2px solid #222;
+             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.05);
+         }
+         .drum-pad > * { position: relative; z-index: 2; }
+
+        /* Control Buttons Styling */
+        .control-button, .bank-button, .knob-button, .transport-button {
+            background-color: var(--control-bg); color: var(--text-dark); border: 2px solid var(--control-border);
+            border-radius: 5px; padding: 5px; font-size: clamp(0.6rem, 1.5vw, 0.8rem); font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.2); display: flex; justify-content: center;
+            align-items: center; flex-direction: column; text-align: center; line-height: 1.1; user-select: none;
+            -webkit-user-select: none; -webkit-tap-highlight-color: transparent; transition: background-color 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .control-button:active, .bank-button:active, .knob-button:active, .transport-button:active {
+             background-color: var(--control-active-bg); transform: translateY(1px) scale(0.98); box-shadow: 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.3);
+         }
+         .control-button.active { background-color: var(--pad-record-bg); color: white; border-color: #bf3636; box-shadow: 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.3), 0 0 8px var(--pad-record-bg); }
+         .bank-button.active { background-color: var(--gold-dark); color: white; border-color: #6e540e; box-shadow: 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.3), 0 0 8px var(--gold-dark); }
+         .transport-button.active { background-color: #4CAF50; color: white; border-color: #388E3C; box-shadow: 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 2px rgba(0,0,0,0.3), 0 0 8px #4CAF50; }
+         .control-button i, .transport-button i { width: clamp(12px, 2.5vw, 18px); height: clamp(12px, 2.5vw, 18px); margin-bottom: 2px; stroke-width: 2.5; }
+
+        /* Button Placement */
+        #bank-a { grid-column: 1; grid-row: 1; } #bank-b { grid-column: 2; grid-row: 1; } #bank-c { grid-column: 3; grid-row: 1; } #bank-d { grid-column: 4; grid-row: 1; }
+        .master-volume { grid-column: 1; grid-row: 7; display: flex; flex-direction: column; align-items: center; } .master-volume label { font-size: 0.7rem; color: var(--text-dark); margin-bottom: 2px; } #volume-slider { width: 80%; height: 10px; cursor: pointer; accent-color: var(--gold-dark); }
+        #rec-button { grid-column: 6; grid-row: 7; } #play-button { grid-column: 7; grid-row: 7; } #stop-button { grid-column: 8; grid-row: 7; } #tap-tempo-button { grid-column: 9; grid-row: 7; } #clear-button { grid-column: 10; grid-row: 7; }
+        #tempo-down { grid-column: 2; grid-row: 7; } #tempo-up { grid-column: 3; grid-row: 7; } .tempo-label { grid-column: 2 / 4; grid-row: 8; text-align: center; font-size: 0.7rem; color: var(--text-dark); align-self: start; margin-top: -5px; }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px), (max-height: 500px) {
+            body { padding: 0.5rem; } .beat-machine-container { width: 100%; height: calc(100vh - 1rem); max-height: none; max-width: none; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto 1fr auto auto; gap: 5px; padding: 10px; }
+            .bank-buttons-container { grid-column: 1 / 5; grid-row: 1; display: flex; justify-content: space-around; gap: 5px; } .screen-area { grid-column: 1 / 5; grid-row: 2; height: 150px; } .pads-container { grid-column: 1 / 5; grid-row: 3; width: 100%; height: auto; aspect-ratio: 1 / 1; max-height: 50vh;}
+            .controls-row-1 { grid-column: 1 / 5; grid-row: 4; display: flex; justify-content: space-around; align-items: center; gap: 5px; margin-top: 5px;} .controls-row-2 { grid-column: 1 / 5; grid-row: 5; display: flex; justify-content: space-around; gap: 5px; margin-top: 5px;}
+             #bank-a, #bank-b, #bank-c, #bank-d, .master-volume, #rec-button, #play-button, #stop-button, #tap-tempo-button, #clear-button, #tempo-down, #tempo-up, .tempo-label { grid-column: auto; grid-row: auto; display: none; }
+            .bank-buttons-container, .controls-row-1, .controls-row-2 { display: flex; }
+             .control-button, .bank-button, .knob-button, .transport-button { padding: 8px 5px; font-size: 0.7rem; flex-grow: 1; } .control-button i, .transport-button i { width: 14px; height: 14px; }
+             .master-volume-mobile { display: flex; flex-direction: column; align-items: center; } #volume-slider-mobile { width: 60px; }
+        }
+        @media (min-width: 769px) and (min-height: 501px) { .bank-buttons-container, .controls-row-1, .controls-row-2 { display: none; } }
+    </style>
+</head>
+<body>
+    <div id="audio-start-overlay">
+        <i data-lucide="volume-2"></i>
+        <span>Tap to Start Audio</span>
+    </div>
+
+    <div class="beat-machine-container">
+        <button id="bank-a" class="bank-button active" data-bank="drums">Bank A</button>
+        <button id="bank-b" class="bank-button" data-bank="animals">Bank B</button>
+        <button id="bank-c" class="bank-button" data-bank="fx">Bank C</button>
+        <button id="bank-d" class="bank-button" disabled>Bank D</button>
+        <div class="screen-area">
+             <div class="screen-overlay"> <span id="bank-display">Bank: Drums</span> <span id="bpm-display">BPM: 120</span> </div>
+            <canvas id="visualizer-canvas"></canvas>
+        </div>
+        <div class="pads-container"> </div>
+        <div class="master-volume"> <label for="volume-slider">VOLUME</label> <input type="range" id="volume-slider" min="-40" max="6" step="1" value="0"> </div>
+        <button id="tempo-down" class="knob-button"><i data-lucide="minus-circle"></i></button> <button id="tempo-up" class="knob-button"><i data-lucide="plus-circle"></i></button> <div class="tempo-label">TEMPO</div>
+        <button id="rec-button" class="transport-button"><i data-lucide="record-circle"></i>REC</button> <button id="play-button" class="transport-button"><i data-lucide="play"></i>PLAY</button> <button id="stop-button" class="transport-button"><i data-lucide="square"></i>STOP</button> <button id="tap-tempo-button" class="transport-button"><i data-lucide="mouse-pointer-click"></i>TAP</button> <button id="clear-button" class="transport-button"><i data-lucide="trash-2"></i>CLEAR</button>
+        <div class="bank-buttons-container"> <button class="bank-button active" data-bank="drums">Bank A</button> <button class="bank-button" data-bank="animals">Bank B</button> <button class="bank-button" data-bank="fx">Bank C</button> <button class="bank-button" disabled>Bank D</button> </div>
+        <div class="controls-row-1"> <div class="master-volume-mobile"> <label for="volume-slider-mobile" style="font-size: 0.7rem; color: var(--text-dark);">VOL</label> <input type="range" id="volume-slider-mobile" min="-40" max="6" step="1" value="0" style="width: 70px; height: 10px; accent-color: var(--gold-dark);"> </div> <button class="knob-button" id="tempo-down-mobile"><i data-lucide="minus-circle"></i></button> <button class="knob-button" id="tempo-up-mobile"><i data-lucide="plus-circle"></i></button> <button class="transport-button" id="tap-tempo-mobile"><i data-lucide="mouse-pointer-click"></i>TAP</button> </div>
+        <div class="controls-row-2"> <button class="transport-button" id="rec-button-mobile"><i data-lucide="record-circle"></i>REC</button> <button class="transport-button" id="play-button-mobile"><i data-lucide="play"></i>PLAY</button> <button class="transport-button" id="stop-button-mobile"><i data-lucide="square"></i>STOP</button> <button class="transport-button" id="clear-button-mobile"><i data-lucide="trash-2"></i>CLEAR</button> </div>
+    </div>
+
+    <script>
+        // --- Global State & Config ---
+        let audioReady = false; let currentBank = 'drums'; const numPads = 16; const sequenceLength = 16;
+        let sequence = {}; let isRecording = false; let isPlaying = false; let currentStep = 0; let scheduledEventId = null;
+        let lastTapTime = 0; const tapTempoBuffer = []; const soundDefinitions = {};
+        const analyser = new Tone.Analyser('waveform', 1024); const masterVolume = new Tone.Volume(0).toDestination();
+
+        // --- Sound Definitions (Simplified & Checked) ---
+        function setupSounds() {
+            console.log("Setting up sounds (Review Pass)...");
+            analyser.connect(masterVolume);
+
+            soundDefinitions.drums = {
+                'pad-0': { synth: new Tone.MembraneSynth({ pitchDecay: 0.04, octaves: 8 }).connect(analyser), triggerNote: 'C2', name: 'Kick', icon: 'drum' },
+                'pad-1': { synth: new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.1 } }).connect(analyser), triggerNote: '8n', name: 'Snare', icon: 'square' },
+                'pad-2': { synth: new Tone.MetalSynth({ frequency: 300, envelope: { attack: 0.001, decay: 0.05 }, resonance: 4000 }).connect(analyser), triggerNote: 'C4', name: 'HiHat C', icon: 'triangle' },
+                'pad-3': { synth: new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.001, decay: 0.08 } }).connect(analyser), triggerNote: '8n', name: 'Clap', icon: 'hand' },
+                'pad-4': { synth: new Tone.MetalSynth({ frequency: 400, envelope: { decay: 0.1, release: 0.1 }, resonance: 800 }).connect(analyser), triggerNote: 'E4', name: 'Cowbell', icon: 'bell' },
+                'pad-5': { synth: new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 4 }).connect(analyser), triggerNote: 'G2', name: 'Tom 1', icon: 'circle' },
+                'pad-6': { synth: new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 3 }).connect(analyser), triggerNote: 'D2', name: 'Tom 2', icon: 'circle' },
+                'pad-7': { synth: new Tone.MetalSynth({ frequency: 150, envelope: { decay: 0.6, release: 0.8 }, resonance: 3000 }).connect(analyser), triggerNote: 'C5', name: 'Crash', icon: 'boom-box' },
+                'pad-8': { synth: new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.01, decay: 0.04 } }).connect(analyser), triggerNote: '8n', name: 'Shaker', icon: 'rat' },
+                'pad-9': { synth: new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.001, decay: 0.03 } }).connect(analyser), triggerNote: 'C5', name: 'Rim', icon: 'disc' },
+                'pad-10': { synth: new Tone.PluckSynth({ attackNoise: 1, dampening: 4000, resonance: 0.7 }).connect(analyser), triggerNote: 'C4', name: 'Pluck', icon: 'guitar' },
+                'pad-11': { synth: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.1, release: 0.5 } }).connect(analyser), triggerNote: 'A4', name: 'Sine Hit', icon: 'radio-tower' },
+                'pad-12': { synth: new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 6 }).connect(analyser), triggerNote: 'C3', name: 'Kick 2', icon: 'drum' },
+                'pad-13': { synth: new Tone.NoiseSynth({ noise: { type: 'white' }, filter: { type: 'highpass', frequency: 5000 }, envelope: { decay: 0.05 } }).connect(analyser), triggerNote: '8n', name: 'Tick', icon: 'mouse-pointer-click' },
+                'pad-14': { synth: new Tone.MetalSynth({ frequency: 250, envelope: { decay: 0.2, release: 0.2 }, resonance: 4000 }).connect(analyser), triggerNote: 'C4', name: 'HiHat O', icon: 'triangle-right' },
+                'pad-15': { synth: new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { decay: 0.1, release: 0.2 } }).connect(analyser), triggerNote: 'E5', name: 'Synth', icon: 'activity' }
+            };
+
+            soundDefinitions.animals = {
+                'pad-0': { synth: new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { decay: 0.1, release: 0.2 }, frequency: 100 }).connect(analyser), triggerNote: 'A2', name: 'Woof', icon: 'dog' },
+                'pad-1': { synth: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { decay: 0.1, release: 0.3 } }).connect(analyser), triggerNote: 'G5', name: 'Meow', icon: 'cat' },
+                'pad-2': { synth: new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { decay: 0.05, release: 0.1 }, frequency: 600 }).connect(analyser), triggerNote: 'C6', name: 'Chirp', icon: 'twitter' },
+                'pad-3': { synth: new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.05, decay: 0.2, release: 0.2 }, frequency: 200 }).connect(analyser), triggerNote: 'E4', name: 'Ribbit', icon: 'bug' },
+                'pad-4': { synth: new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { decay: 0.1, release: 0.1 } }).connect(analyser), triggerNote: '8n', name: 'Hiss', icon: 'wind' },
+                'pad-5': { synth: new Tone.MembraneSynth({ pitchDecay: 0.2, octaves: 5 }).connect(analyser), triggerNote: 'C2', name: 'Moo?', icon: 'user' },
+                'pad-6': { synth: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { decay: 0.1, release: 0.1 }, frequency: 440 }).connect(analyser), triggerNote: 'A4', name: 'Oink', icon: 'user-minus' },
+                'pad-7': { synth: new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { decay: 0.2, release: 0.3 }, frequency: 150 }).connect(analyser), triggerNote: 'D3', name: 'Grunt', icon: 'user-x' },
+            };
+            for (let i = 8; i < 16; i++) { soundDefinitions.animals[`pad-${i}`] = soundDefinitions.animals[`pad-${i-8}`]; }
+
+            soundDefinitions.fx = {
+                'pad-0': { synth: new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { decay: 0.2, release: 0.1 }, filter: { type: 'lowpass', frequency: 1000 }, filterEnvelope: { attack: 0.01, decay: 0.1, baseFrequency: 100, octaves: 4 } }).connect(analyser), triggerNote: 'C5', name: 'Laser', icon: 'zap' },
+                'pad-1': { synth: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.02, decay: 0.1 }, frequency: 800 }).connect(analyser), triggerNote: 'C7', name: 'Bubble', icon: 'message-circle' }, // Special trigger
+                'pad-2': { synth: new Tone.MembraneSynth({ pitchDecay: 0.5, octaves: 10 }).connect(analyser), triggerNote: 'C3', name: 'Boing', icon: 'arrow-up-down' },
+                'pad-3': { synth: new Tone.NoiseSynth({ noise: { type: 'white' }, filter: { type: 'bandpass', frequency: 3000, Q: 5 }, envelope: { attack: 0.1, decay: 0.3 } }).connect(analyser), triggerNote: '8n', name: 'Sweep', icon: 'trending-up' },
+                'pad-4': { synth: new Tone.PluckSynth({ attackNoise: 5, dampening: 1000, resonance: 0.9 }).connect(analyser), triggerNote: 'G4', name: 'Twang', icon: 'git-commit' },
+                'pad-5': { synth: new Tone.FMSynth({ harmonicity: 1.5, modulationIndex: 15, envelope: { attack: 0.1, decay: 0.5, release: 1.0 }, modulationEnvelope: { attack: 0.1, decay: 0.3, release: 1.0 } }).connect(analyser), triggerNote: 'A2', name: 'Wobble', icon: 'waves' },
+                'pad-6': { synth: new Tone.Synth({ oscillator: { type: 'pulse', width: 0.8 }, envelope: { decay: 0.05 } }).connect(analyser), triggerNote: 'C6', name: 'Glitch', icon: 'terminal-square' },
+                'pad-7': { synth: new Tone.MetalSynth({ frequency: 50, envelope: { attack: 0.2, decay: 1.0, release: 1.0 }, resonance: 1000 }).connect(analyser), triggerNote: 'C2', name: 'Gong', icon: 'bell-ring' },
+            };
+            for (let i = 8; i < 16; i++) { soundDefinitions.fx[`pad-${i}`] = soundDefinitions.fx[`pad-${i-8}`]; }
+
+            console.log("Sound definitions complete.");
+            Object.keys(soundDefinitions).forEach(bankName => { sequence[bankName] = Array(sequenceLength).fill(null).map(() => []); });
+            console.log("Sequences initialized.");
+        }
+
+        // --- UI Generation ---
+        function createPads() {
+            const container = document.querySelector('.pads-container'); if (!container) { console.error("Pads container not found!"); return; } container.innerHTML = ''; console.log(`Creating pads for bank: ${currentBank}`);
+            const currentBankDefs = soundDefinitions[currentBank]; if (!currentBankDefs) { console.error(`Sound definitions for bank ${currentBank} not found.`); return; }
+            const padColors = [ '#ff7675', '#fdcb6e', '#81ecec', '#a29bfe', '#fab1a0', '#ffeaa7', '#74b9ff', '#dfe6e9', '#ff8a80', '#ffd180', '#84ffff', '#b388ff', '#ff80ab', '#ffff8d', '#80d8ff', '#cfd8dc' ];
+            for (let i = 0; i < numPads; i++) {
+                const padId = `pad-${i}`; const soundDef = currentBankDefs[padId]; if (!soundDef) { console.warn(`Definition for ${padId} in bank ${currentBank} not found.`); continue; }
+                const pad = document.createElement('div'); pad.classList.add('drum-pad'); pad.dataset.padIndex = i; pad.dataset.soundId = padId; pad.style.backgroundColor = padColors[i % padColors.length];
+                const icon = document.createElement('i'); icon.classList.add('pad-icon'); icon.setAttribute('data-lucide', soundDef.icon || 'music');
+                const name = document.createElement('span'); name.classList.add('pad-name'); name.textContent = soundDef.name || `Pad ${i+1}`;
+                pad.appendChild(icon); pad.appendChild(name); container.appendChild(pad);
+                const eventType = ('ontouchend' in window) ? 'touchend' : 'mousedown'; // Use touchend for iOS reliability
+                pad.addEventListener(eventType, handlePadPress);
+            }
+             lucide.createIcons(); console.log("Pads created and icons rendered."); updatePadSequenceLights();
+        }
+
+        // --- Event Handlers ---
+        function handlePadPress(e) {
+            e.preventDefault(); // Still prevent default actions like zoom/scroll
+            const padElement = e.currentTarget; const soundId = padElement.dataset.soundId;
+            playSound(soundId, padElement);
+            if (audioReady && isRecording && isPlaying) { recordStep(soundId); }
+        }
+
+        function playSound(soundId, padElement) {
+             if (!audioReady) {
+                 console.log("Audio context not ready, attempting to start via playSound...");
+                 // Force start attempt on first actual sound trigger if overlay somehow failed
+                 startAudioContext().then(() => { console.log("Audio context started by playSound!"); triggerSoundInternal(soundId, padElement); })
+                                   .catch(err => { console.error("Failed to start audio context on demand:", err); });
+                 return;
+             }
+             triggerSoundInternal(soundId, padElement);
+        }
+
+        function triggerSoundInternal(soundId, padElement) {
+             const soundDef = soundDefinitions[currentBank]?.[soundId]; if (!soundDef || !soundDef.synth) { console.warn(`Sound definition/synth for ${soundId} in bank ${currentBank} not found.`); return; }
+             try {
+                 const synth = soundDef.synth; const note = soundDef.triggerNote || 'C4'; const duration = '8n';
+                 if (currentBank === 'fx' && soundId === 'pad-1') { // Bubble sound
+                      synth.triggerAttackRelease('C7', '16n', Tone.now()); synth.triggerAttackRelease('E7', '16n', Tone.now() + 0.05); synth.triggerAttackRelease('G7', '16n', Tone.now() + 0.1);
+                 } else if (synth instanceof Tone.NoiseSynth) { synth.triggerAttackRelease(duration, Tone.now()); }
+                 else if (typeof synth.triggerAttackRelease === 'function') { synth.triggerAttackRelease(note, duration, Tone.now()); }
+                 else { console.warn(`Synth for ${soundId} doesn't have triggerAttackRelease.`); }
+                 if (padElement) {
+                     padElement.classList.add('lit'); anime({ targets: padElement, scale: [ { value: 1.05, duration: 50 }, { value: 1, duration: 100 } ], easing: 'easeInOutQuad' });
+                     setTimeout(() => { if (padElement) padElement.classList.remove('lit'); }, 150);
+                 }
+             } catch (error) { console.error(`Error playing sound ${soundId}:`, error); }
+        }
+
+        function recordStep(soundId) {
+            if (!isRecording || !isPlaying || !sequence[currentBank]) return;
+            const stepToRecord = (currentStep - 1 + sequenceLength) % sequenceLength;
+            if (!sequence[currentBank][stepToRecord].includes(soundId)) {
+                 sequence[currentBank][stepToRecord].push(soundId); console.log(`Recorded ${soundId} at step ${stepToRecord}`);
+                 updatePadSequenceLights();
+            }
+        }
+
+        function switchBank(newBank) {
+            if (!soundDefinitions[newBank]) { return; }
+            currentBank = newBank; console.log(`Switched to bank: ${currentBank}`);
+            document.querySelectorAll('.bank-button').forEach(btn => { btn.classList.toggle('active', btn.dataset.bank === newBank); });
+             const bankDisplayName = newBank.charAt(0).toUpperCase() + newBank.slice(1);
+             document.querySelectorAll('#bank-display').forEach(el => el.textContent = `Bank: ${bankDisplayName}`);
+             createPads();
+        }
+
+        function updateBPM(newBpm) {
+            newBpm = Math.max(30, Math.min(300, newBpm)); Tone.Transport.bpm.value = newBpm;
+             document.querySelectorAll('#bpm-display').forEach(el => el.textContent = `BPM: ${newBpm}`);
+        }
+        function handleVolumeChange(e) { masterVolume.volume.value = parseFloat(e.target.value); }
+        function handleTapTempo() {
+            const now = Tone.now(); if (!audioReady) { return; }
+            if (lastTapTime > 0) {
+                const interval = now - lastTapTime;
+                if (interval > 0.1 && interval < 2.0) {
+                    tapTempoBuffer.push(60 / interval); if (tapTempoBuffer.length > 4) { tapTempoBuffer.shift(); }
+                    if (tapTempoBuffer.length > 1) { const avgBpm = tapTempoBuffer.reduce((sum, bpm) => sum + bpm, 0) / tapTempoBuffer.length; updateBPM(Math.round(avgBpm)); }
+                } else { tapTempoBuffer.length = 0; }
+            } else { tapTempoBuffer.length = 0; }
+            lastTapTime = now;
+             document.querySelectorAll('#tap-tempo-button, #tap-tempo-mobile').forEach(btn => { if (btn) { anime({ targets: btn, scale: [1.1, 1], duration: 100, easing: 'easeOutQuad' }); } });
+        }
+        function clearSequence() {
+             console.log(`Attempting to clear sequence for bank: ${currentBank}`);
+             if (confirm(`Clear sequence for the current bank (${currentBank})?`)) {
+                 if (sequence[currentBank]) { sequence[currentBank] = Array(sequenceLength).fill(null).map(() => []); console.log(`Sequence cleared for bank ${currentBank}.`); updatePadSequenceLights(-1); }
+                 else { console.log(`Sequence data for bank ${currentBank} not found.`); }
+             } else { console.log("Clear sequence cancelled by user."); }
+        }
+
+        // --- Sequencer Logic ---
+        function startPlayback() {
+             if (!audioReady) {
+                 console.warn("Audio not ready. Cannot start playback.");
+                  startAudioContext().then(() => { console.log("Audio context started on Play."); startPlaybackInternal(); }) .catch(err => { console.error("Failed to start audio context:", err); }); return;
+             }
+             startPlaybackInternal();
+        }
+        function startPlaybackInternal() {
+            if (Tone.Transport.state === 'started') { console.log("Playback active, restarting..."); stopPlayback(false); setTimeout(() => { startPlaybackInternal(); }, 50); return; }
+            isPlaying = true;
+            document.querySelectorAll('#play-button, #play-button-mobile').forEach(b => b.classList.add('active')); document.querySelectorAll('#stop-button, #stop-button-mobile').forEach(b => b.classList.remove('active'));
+            Tone.Transport.cancel(); currentStep = 0; console.log("Scheduling sequence playback...");
+            scheduledEventId = Tone.Transport.scheduleRepeat(time => {
+                const stepIndex = currentStep % sequenceLength; const soundsToPlay = sequence[currentBank]?.[stepIndex] ?? [];
+                Tone.Draw.schedule(() => {
+                    updatePadSequenceLights(stepIndex);
+                     if (isRecording) { document.querySelectorAll('.drum-pad').forEach((p, index) => { p.classList.toggle('recording', index === stepIndex); }); }
+                     else { document.querySelectorAll('.drum-pad.recording').forEach(p => p.classList.remove('recording')); }
+                }, time);
+                 if (soundsToPlay.length > 0) { soundsToPlay.forEach(soundId => { triggerSoundInternal(soundId, null); }); }
+                currentStep++;
+            }, `${sequenceLength}n`, 0);
+            Tone.Transport.start(Tone.now()); console.log("Playback started");
+        }
+        function stopPlayback(updateUI = true) {
+            Tone.Transport.stop(); if (scheduledEventId !== null) { Tone.Transport.cancel(scheduledEventId); scheduledEventId = null; }
+            if (updateUI) {
+                 if (!isPlaying && !isRecording) return; isPlaying = false; isRecording = false; currentStep = 0;
+                 document.querySelectorAll('#play-button, #play-button-mobile').forEach(b => b.classList.remove('active')); document.querySelectorAll('#stop-button, #stop-button-mobile').forEach(b => b.classList.add('active')); document.querySelectorAll('#rec-button, #rec-button-mobile').forEach(b => b.classList.remove('active'));
+                 updatePadSequenceLights(-1); document.querySelectorAll('.drum-pad.recording').forEach(p => p.classList.remove('recording')); console.log("Playback stopped (UI updated)");
+            } else { console.log("Playback stopped (internal, no UI update)"); }
+        }
+        function toggleRecording() {
+            if (!audioReady) {
+                 console.warn("Audio not ready. Cannot start recording."); startAudioContext().then(() => { console.log("Audio context started on Record."); toggleRecordingInternal(); }).catch(err => { console.error("Failed to start audio context:", err); }); return;
+            }
+             toggleRecordingInternal();
+        }
+        function toggleRecordingInternal() {
+             isRecording = !isRecording; document.querySelectorAll('#rec-button, #rec-button-mobile').forEach(b => b.classList.toggle('active', isRecording));
+             if (isRecording) {
+                 console.log("Recording ON"); if (Tone.Transport.state !== 'started') { console.log("Playback not started, starting for recording context..."); startPlayback(); }
+                 document.querySelectorAll('.drum-pad.recording').forEach(p => p.classList.remove('recording'));
+             } else { console.log("Recording OFF"); document.querySelectorAll('.drum-pad.recording').forEach(p => p.classList.remove('recording')); }
+        }
+        function updatePadSequenceLights(activeStep = -1) {
+            const pads = document.querySelectorAll('.pads-container .drum-pad'); if (!pads || pads.length === 0) return;
+            pads.forEach((pad, index) => {
+                 const soundId = pad.dataset.soundId; let isSequencedThisPad = false;
+                 if (sequence[currentBank]) { isSequencedThisPad = sequence[currentBank].some(stepSounds => stepSounds.includes(soundId)); }
+                 pad.classList.toggle('sequenced', isSequencedThisPad);
+                 if (activeStep === index) {
+                     pad.classList.add('lit'); const stepDuration = Tone.Time(`${sequenceLength}n`).toMilliseconds();
+                     setTimeout(() => { if(pad) pad.classList.remove('lit'); }, stepDuration * 0.8);
+                 }
+            });
+        }
+
+        // --- Three.js Visualizer ---
+        let scene, camera, renderer, mesh; let currentAnalyserData = null; let uniforms;
+        function initThree() {
+            console.log("Initializing Three.js..."); const canvas = document.getElementById('visualizer-canvas'); const container = canvas.parentElement; if (!container || !canvas) { console.error("Canvas or container not found"); return; } if (!analyser) { console.error("Tone.Analyser not ready"); return; }
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a1a); camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000); camera.position.z = 5;
+            try { renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true }); renderer.setSize(container.clientWidth, container.clientHeight); renderer.setPixelRatio(window.devicePixelRatio); } catch (error) { console.error("Error creating WebGLRenderer:", error); container.innerHTML = "<p style='color: white; padding: 10px;'>WebGL Error</p>"; return; }
+            const geometry = new THREE.PlaneGeometry(12, 6, 1, 1); uniforms = { time: { value: 1.0 }, audioLevel: { value: 0.0 }, audioTransient: { value: 0.0 }, resolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) } };
+            const material = new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec2 vUv;\n uniform float time;\n uniform float audioLevel;\n uniform float audioTransient;\n uniform vec2 resolution;\n #define PI 3.14159265359\n #define TWO_PI 6.28318530718\n\n mat2 rotate2d(float angle){\n return mat2(cos(angle), -sin(angle), sin(angle), cos(angle));\n }\n float smin(float a, float b, float k) {\n float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);\n return mix(b, a, h) - k * h * (1.0 - h);\n }\n vec3 hsl2rgb(vec3 c) {\n vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);\n return c.z + c.y * (rgb - 0.5) * (1.0 - abs(2.0 * c.z - 1.0));\n }\n float sdCircle(vec2 p, float r) {\n return length(p) - r;\n }\n float sdStar5(vec2 p, float r, float rf) {\n vec2 pabs = abs(p);\n float angle = atan(p.y, p.x);\n float segmentAngle = TWO_PI / 10.0;\n angle = mod(angle, segmentAngle) - segmentAngle * 0.5;\n vec2 dir = vec2(cos(angle), sin(angle));\n p = vec2(dot(p, dir), abs(dot(p, vec2(-dir.y, dir.x))));\n float rBig = r;\n float rSmall = r * rf;\n float k = rSmall * tan(segmentAngle * 0.5);\n k = min(k, rBig * tan(segmentAngle*0.5));\n p.x -= rBig;\n p.y -= k;\n p = max(p, 0.0);\n return length(p) * sign(p.x);\n }\n float sdBox(vec2 p, vec2 b, float r) {\n vec2 q = abs(p) - b + r;\n return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;\n }\n float sdSquiggle(vec2 p, float freq, float amp) {\n return abs(p.y - sin(p.x * freq) * amp) - 0.02;\n }\n\n void main() {\n vec2 uv = (vUv - 0.5) * 2.0;\n uv.x *= resolution.x / resolution.y;\n float dynamicTime = time * (0.5 + audioLevel * 2.0);\n float fastTime = time * 2.0 * (1.0 + audioTransient * 3.0);\n float bgHue = mod(dynamicTime * 0.1 + audioLevel * 0.3, 1.0);\n float bgSat = 0.6 + 0.2 * sin(dynamicTime * 0.5);\n float bgLight = 0.1 + 0.1 * audioLevel;\n vec3 bgColor = hsl2rgb(vec3(bgHue, bgSat, bgLight));\n float bgPattern = smoothstep(0.4, 0.8, length(uv * (1.0 - audioLevel * 0.3)));\n bgColor = mix(bgColor * 0.5, bgColor, bgPattern);\n vec3 finalColor = bgColor;\n float finalDist = 1.0;\n vec2 starPos = uv;\n float starAngle = dynamicTime * 0.5 + audioLevel * PI;\n starPos = rotate2d(starAngle) * starPos;\n float starSize = 0.2 + 0.15 * sin(dynamicTime * 1.5) + audioTransient * 0.15;\n float starSharpness = 0.4 + 0.2 * cos(dynamicTime);\n float dStar = sdStar5(starPos, starSize, starSharpness);\n finalDist = smin(finalDist, dStar, 0.1);\n if (dStar < 0.01) {\n float starHue = mod(bgHue + 0.5 + audioTransient * 0.2, 1.0);\n float starSat = 0.8 + 0.2 * audioLevel;\n float starLight = 0.6 + 0.3 * audioTransient;\n vec3 starColor = hsl2rgb(vec3(starHue, starSat, starLight));\n float starEdge = smoothstep(0.0, 0.015, dStar);\n finalColor = mix(starColor, finalColor, starEdge);\n }\n float dCircles = 1.0;\n for (float i = 0.0; i < 5.0; i++) {\n float loopTime = fastTime + i * 0.8;\n vec2 circleOffset = vec2(\n sin(loopTime * (0.8 + i * 0.1)),\n cos(loopTime * (0.7 + i*0.15))\n ) * (0.6 + audioLevel * 0.3);\n float circleRadius = 0.03 + 0.05 * audioTransient * sin(loopTime * 5.0 + i);\n circleRadius = max(0.01, circleRadius);\n dCircles = smin(dCircles, sdCircle(uv - circleOffset, circleRadius), 0.05);\n }\n finalDist = smin(finalDist, dCircles, 0.1);\n if (dCircles < 0.01) {\n float circleHue = mod(bgHue + 0.2 + audioLevel * 0.5, 1.0);\n float circleSat = 0.9;\n float circleLight = 0.7 + 0.2 * audioTransient;\n vec3 circleColor = hsl2rgb(vec3(circleHue, circleSat, circleLight));\n float circleEdge = smoothstep(0.0, 0.01, dCircles);\n finalColor = mix(circleColor, finalColor, circleEdge);\n }\n vec2 gridUv = uv * 3.0;\n gridUv.x += sin(gridUv.y * 2.0 + dynamicTime * 0.3) * 0.3;\n gridUv.y += cos(gridUv.x * 1.5 - dynamicTime * 0.4) * 0.2;\n float dSquiggle = sdSquiggle(gridUv, 10.0 + audioLevel * 10.0, 0.1 + audioTransient * 0.1);\n if (dSquiggle < 0.01) {\n vec3 squiggleColor = finalColor * 0.7;\n float squiggleEdge = smoothstep(0.0, 0.01, dSquiggle);\n finalColor = mix(squiggleColor, finalColor, squiggleEdge * 0.5);\n }\n gl_FragColor = vec4(finalColor, 1.0);\n }\n` });
+            mesh = new THREE.Mesh(geometry, material); scene.add(mesh);
+            window.addEventListener('resize', onWindowResize, false); setTimeout(onWindowResize, 50);
+            console.log("Three.js Initialized.");
+        }
+        function onWindowResize() {
+             const canvas = document.getElementById('visualizer-canvas'); if (!renderer || !camera || !canvas) return; const container = canvas.parentElement; if (!container) return; const width = container.clientWidth; const height = container.clientHeight; if (width > 0 && height > 0) { camera.aspect = width / height; camera.updateProjectionMatrix(); renderer.setSize(width, height); if (uniforms && uniforms.resolution) { uniforms.resolution.value.set(width, height); } }
+        }
+        let lastAudioLevel = 0;
+        function animateThree() {
+            if (renderer) { requestAnimationFrame(animateThree); } else { console.log("Renderer stopped."); return; }
+            let currentAudioLevel = 0;
+            if (analyser && audioReady && Tone.context && Tone.context.state === 'running') {
+                 try {
+                     const currentAnalyserResult = analyser.getValue();
+                     if (currentAnalyserResult instanceof Float32Array && currentAnalyserResult.length > 0) {
+                         const analyserDataForLoop = currentAnalyserResult; let sum = 0;
+                         for (let i = 0; i < analyserDataForLoop.length; i++) { let norm = Math.abs(analyserDataForLoop[i]); sum += norm; }
+                         currentAudioLevel = analyserDataForLoop.length > 0 ? sum / analyserDataForLoop.length : 0;
+                         if (uniforms) {
+                             uniforms.audioLevel.value += (currentAudioLevel - uniforms.audioLevel.value) * 0.15;
+                             let transient = Math.max(0.0, currentAudioLevel - lastAudioLevel) * 5.0;
+                             uniforms.audioTransient.value += (transient - uniforms.audioTransient.value) * 0.2;
+                             uniforms.audioTransient.value = Math.min(1.0, uniforms.audioTransient.value);
+                             uniforms.time.value += 0.01;
+                         }
+                         lastAudioLevel = currentAudioLevel;
+                     } else { console.warn("Analyser getValue() returned invalid data:", currentAnalyserResult); if (uniforms) uniforms.audioLevel.value *= 0.9; if (uniforms) uniforms.audioTransient.value *= 0.8; }
+                 } catch (error) { console.error("Error processing analyser data:", error); console.error(`Error Name: ${error.name}, Message: ${error.message}`); if (uniforms) uniforms.audioLevel.value *= 0.9; if (uniforms) uniforms.audioTransient.value *= 0.8; }
+            } else if (uniforms) { uniforms.audioLevel.value *= 0.95; uniforms.audioTransient.value *= 0.85; uniforms.time.value += 0.01; }
+            try { renderer.render(scene, camera); } catch(error) { console.error("Error rendering Three.js scene:", error); renderer = null; }
+        }
+
+        // --- Audio Context Starting Function (with Silent Buffer) ---
+        function startAudioContext() {
+             // No need to return promise if called directly from handler
+             if (audioReady) { return; } // Already ready
+
+             const startAction = () => {
+                 audioReady = true;
+                 console.log("Audio context started/resumed successfully.");
+                 const overlay = document.getElementById('audio-start-overlay');
+                 if (overlay) overlay.classList.add('hidden');
+
+                 // --- Silent Buffer Playback (iOS Workaround) ---
+                 try {
+                     // Use the raw AudioContext from Tone.js
+                     const rawContext = Tone.context.rawContext;
+                     const buffer = rawContext.createBuffer(1, 1, rawContext.sampleRate); // Use context's sample rate
+                     const source = rawContext.createBufferSource();
+                     source.buffer = buffer;
+                     source.connect(rawContext.destination);
+                     source.start(0);
+                     console.log("Played silent buffer successfully.");
+                 } catch (e) {
+                      console.error("Error playing silent buffer:", e);
+                 }
+                 // --- End Workaround ---
+             };
+
+             const startError = (err) => {
+                 console.error("Failed to start/resume audio context:", err);
+                 const overlay = document.getElementById('audio-start-overlay');
+                 if (overlay) overlay.textContent = "Error starting audio!"; // Give feedback
+             };
+
+             // Log current state before attempting start/resume
+             console.log(`Attempting audio start. Current context state: ${Tone.context ? Tone.context.state : 'N/A'}`);
+
+             if (Tone.context && Tone.context.state === "suspended") {
+                 console.log("AudioContext suspended, attempting resume...");
+                 Tone.context.resume().then(startAction).catch(startError);
+             } else if (Tone.context && Tone.context.state === "running") {
+                  console.log("Audio context already running. Playing silent buffer anyway...");
+                  startAction(); // Run action even if already running to ensure buffer plays
+             } else {
+                 console.log("Attempting Tone.start()...");
+                 Tone.start().then(startAction).catch(startError);
+             }
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM Loaded. Initializing App.");
+            // Log Tone.supported status
+            console.log("Tone.supported:", Tone.supported);
+
+            try {
+                setupSounds(); createPads(); initThree(); animateThree();
+                setTimeout(() => { lucide.createIcons(); console.log("Lucide icons created."); }, 50);
+                // Connect UI Elements
+                document.querySelectorAll('.bank-button').forEach(button => { if (!button.disabled) { button.addEventListener('click', () => switchBank(button.dataset.bank)); } });
+                document.querySelectorAll('#volume-slider, #volume-slider-mobile').forEach(slider => { slider.addEventListener('input', handleVolumeChange); if(masterVolume) slider.value = masterVolume.volume.value; });
+                document.querySelectorAll('#tempo-up, #tempo-up-mobile').forEach(btn => { btn.addEventListener('click', () => updateBPM(Tone.Transport.bpm.value + 1)); });
+                document.querySelectorAll('#tempo-down, #tempo-down-mobile').forEach(btn => { btn.addEventListener('click', () => updateBPM(Tone.Transport.bpm.value - 1)); });
+                document.querySelectorAll('#tap-tempo-button, #tap-tempo-mobile').forEach(btn => { btn.addEventListener('click', handleTapTempo); });
+                document.querySelectorAll('#play-button, #play-button-mobile').forEach(btn => { btn.addEventListener('click', startPlayback); });
+                document.querySelectorAll('#stop-button, #stop-button-mobile').forEach(btn => { btn.addEventListener('click', () => stopPlayback(true)); });
+                document.querySelectorAll('#rec-button, #rec-button-mobile').forEach(btn => { btn.addEventListener('click', toggleRecording); });
+                document.querySelectorAll('#clear-button, #clear-button-mobile').forEach(btn => { btn.addEventListener('click', clearSequence); });
+                updateBPM(120); switchBank('drums'); stopPlayback(true); console.log("App Initialized Successfully.");
+
+                 // Setup Audio Start Overlay Listener
+                 const overlay = document.getElementById('audio-start-overlay');
+                 if (overlay) {
+                     // Use touchend primarily for iOS, fallback to click
+                     const eventName = ('ontouchend' in window) ? 'touchend' : 'click';
+                     console.log(`Using event type: ${eventName} for audio start overlay.`);
+
+                     // --- MODIFICATION START: Direct audio start logic in listener ---
+                     const startHandler = (e) => {
+                         e.preventDefault(); e.stopPropagation();
+                         console.log("Audio start overlay interaction detected.");
+
+                         // Don't call separate function, do it directly here
+                         if (audioReady) { return; } // Already ready
+
+                         const startAction = () => {
+                             audioReady = true;
+                             console.log("Audio context started/resumed successfully.");
+                             if (overlay) overlay.classList.add('hidden'); // Hide overlay on success
+
+                             // Play silent buffer
+                             try {
+                                 const rawContext = Tone.context.rawContext;
+                                 const buffer = rawContext.createBuffer(1, 1, rawContext.sampleRate);
+                                 const source = rawContext.createBufferSource();
+                                 source.buffer = buffer;
+                                 source.connect(rawContext.destination);
+                                 source.start(0);
+                                 console.log("Played silent buffer successfully.");
+                             } catch (e) { console.error("Error playing silent buffer:", e); }
+                         };
+
+                         const startError = (err) => {
+                             console.error("Failed to start/resume audio context:", err);
+                             if (overlay) overlay.textContent = "Audio Error! Please refresh."; // Update overlay text on error
+                         };
+
+                         console.log(`Attempting audio start from handler. Current context state: ${Tone.context ? Tone.context.state : 'N/A'}`);
+                         if (Tone.context && Tone.context.state === "suspended") {
+                             console.log("AudioContext suspended, attempting resume...");
+                             Tone.context.resume().then(startAction).catch(startError);
+                         } else if (Tone.context && Tone.context.state === "running") {
+                              console.log("Audio context already running. Playing silent buffer anyway...");
+                              startAction(); // Still run action to ensure buffer plays and overlay hides
+                         } else {
+                             console.log("Attempting Tone.start()...");
+                             Tone.start().then(startAction).catch(startError);
+                         }
+                     };
+                     // --- MODIFICATION END ---
+
+                     overlay.addEventListener(eventName, startHandler, { once: true, capture: true });
+                     lucide.createIcons({ nodes: [overlay.querySelector('i')] }); // Render icon in overlay
+                 } else { console.error("Audio start overlay not found!"); }
+
+            } catch (error) {
+                 console.error("Error during app initialization:", error);
+                 const container = document.querySelector('.beat-machine-container');
+                 if (container) { container.innerHTML = `<p style='color: #b71c1c; background: #ffebee; padding: 20px; border-radius: 10px; text-align: center;'>Oops! Something went wrong initializing the beat maker. Please try refreshing the page. Error: ${error.message}</p>`; }
+            }
+        });
+    </script>
+</body>
+</html>
