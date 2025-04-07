@@ -4,6 +4,8 @@
 
 Inspired by the iconic Akai MPC, I've built (vibe-coded with Gemini 2.5 Pro) a super fun, interactive beat machine designed for little creators (ages 1-5)! 🎧👶
 
+You can also try it out online here: https://g.co/gemini/share/686e1a14ef02
+
 Watch your toddler tap into their inner musician with:
 
 🌈 Colorful Light-Up Pads: Easy to tap, fun to watch!
