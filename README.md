@@ -1,5 +1,7 @@
 # Kid's Beat Maker
 
+![Kid's Beat Maker Interface](public/img/kids-beat-maker.png)
+
 Inspired by the iconic Akai MPC, I've built (vibe-coded with Gemini 2.5 Pro) a super fun, interactive beat machine designed for little creators (ages 1-5)! 🎧👶
 
 Watch your toddler tap into their inner musician with:
